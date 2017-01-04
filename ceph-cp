@@ -1,0 +1,164 @@
+#!/bin/bash
+
+CONF_FILE="${HOME}/.ceph-cp.conf"
+
+
+# init default config
+# configuration file setup
+function initConfig
+{
+  echo "Type the 'S3 Key', followed by [ENTER]:"
+  read S3_KEY
+  echo "Type the 'S3 Secret', followed by [ENTER]:"
+  read S3_SECRET
+  echo "Type the 'Service Host' (ex: http://192.168.0.1), followed by [ENTER]:"
+  read S3_HOST
+  echo --------------------------------
+  echo "S3_KEY=\"${S3_KEY}\""
+  echo "S3_SECRET=\"${S3_SECRET}\""
+  echo "S3_HOST=\"${S3_HOST}\""
+  while true; do
+    read -p "Do you wish to create configuration file (${CONF_FILE}) ? [yn] " yn
+    case $yn in
+      [Yy]* )
+        echo "S3_KEY=\"${S3_KEY}\"" > ${CONF_FILE}
+        echo "S3_SECRET=\"${S3_SECRET}\"" >> ${CONF_FILE}
+        echo "S3_HOST=\"${S3_HOST}\"" >> ${CONF_FILE}
+        break;;
+      [Nn]* )
+        echo "bye";
+        exit 9;;
+      * ) echo "Please answer yes or no.";;
+    esac
+  done
+}
+if [[ "$@" =~ -init ]] ; then
+  initConfig
+  exit
+fi
+# load default config
+if [ -f ${CONF_FILE} ] ; then
+  source ${CONF_FILE}
+fi
+
+
+# parse parameter
+if [[ "$@" =~ -k[[:space:]]+([^-[:space:]]+) ]] ; then
+  S3_KEY=${BASH_REMATCH[1]}
+fi
+if [[ "$@" =~ -s[[:space:]]+([^-[:space:]]+) ]] ; then
+  S3_SECRET=${BASH_REMATCH[1]}
+fi
+if [[ "$@" =~ -h[[:space:]]+([^-[:space:]]+) ]] ; then
+  S3_HOST=${BASH_REMATCH[1]}
+fi
+if [[ "${S3_KEY}" == "" || "${S3_SECRET}" == "" || "${S3_HOST}" == "" ]] ; then
+  echo ""
+  echo " Please set config by: '$0 -init' first."
+  echo "  or"
+  echo " Run command and append option arguments: $0 -h [Host] -k [Key] -s [Secret]"
+  echo "  ex: $0 -h http://192.168.0.1 -k ESe8dJDS3988duy -s 48FDg4DFIjeiwe4e90"
+  echo ""
+  exit 3
+fi
+
+
+# switch action
+if [[ " $@" =~ .*?[[:space:]](.+)@([^[:space:]]*)[[:space:]]+([^-]+) ]] ; then
+  # download file from S3 Service
+  SOURCE=${BASH_REMATCH[1]}
+  BUCKET=${BASH_REMATCH[2]}
+  TARGET=${BASH_REMATCH[3]}
+  ACTION="DOWNLOAD"
+  # fix source
+  if [[ "${SOURCE:0:1}" != "/" ]] ; then
+    SOURCE="/${SOURCE}"
+  fi
+elif [[ " $@" =~ .*?[[:space:]]([^-]+)[[:space:]]+(.+)@([^[:space:]]*) ]] ; then
+  # upload file to S3 Service
+  SOURCE=${BASH_REMATCH[1]}
+  BUCKET=${BASH_REMATCH[3]}
+  TARGET=${BASH_REMATCH[2]}
+  ACTION="UPLOAD"
+  if [[ ! -f ${SOURCE} ]] ; then
+    echo "File not found: ${SOURCE}"
+    echo 2
+  fi
+  # fix target
+  if [[ "${TARGET:0:1}" != "/" ]] ; then
+    TARGET="/${TARGET}"
+  fi
+fi
+# fix bucket
+if [[ "${BUCKET}" != "" ]] ; then
+  BUCKET="/${BUCKET}"
+fi
+# check
+if [[ "${ACTION}" == "" ]] ; then
+  echo ""
+  echo "Useage:"
+  echo ""
+  echo "  Upload file to S3 service: $0 [filename] [remote path]@[bucket]"
+  echo ""
+  echo "  Download file from S3 service: $0 [remote path]@[bucket] [filename]"
+  echo ""
+  echo "  Init config: $0 --init"
+  echo ""
+  exit 1
+fi
+
+
+[[ "${S3_HOST}" =~ (^.*)://(.*) ]]
+SCHEMA=${BASH_REMATCH[1]}
+HOST=${BASH_REMATCH[2]}
+
+function putObject
+{
+  LOG_OUT="/tmp/$0-$(date +%s).out"
+  CONTENT_TYPE=`file ${SOURCE} --mime-type | awk '{print $2}'`
+  URI="${BUCKET}${TARGET}"
+  DATE=`env LANG=en_US date +"%a, %d %b %Y %T %z" -u`
+  STR="PUT\n\n${CONTENT_TYPE}\n${DATE}\n${URI}"
+  SIGNATURE=$(echo -en "${STR}" | openssl sha1 -hmac "${S3_SECRET}" -binary | base64)
+
+  curl -s -o ${LOG_OUT} -X PUT -T "${SOURCE}" \
+    -H "Content-Type: ${CONTENT_TYPE}" \
+    -H "Host: ${HOST}" \
+    -H "Date: ${DATE}" \
+    -H "Authorization: AWS ${S3_KEY}:$SIGNATURE" \
+    "${SCHEMA}://${HOST}${URI}" > ${LOG_OUT} 2>&1
+
+  if [ "`cat ${LOG_OUT} | grep 'Error' | wc -l`" == "0" ] ; then
+    echo "Upload '${SOURCE}' to '${SCHEMA}://${HOST}${URI}'"
+  else
+    echo 'Upload fail:'
+    cat ${LOG_OUT}
+    echo ""
+    rm -rf ${LOG_OUT}
+    exit 8
+  fi
+}
+
+function getObject
+{
+  LOG_OUT="/tmp/$0-$(date +%s).out"
+  URI="${BUCKET}${SOURCE}"
+  DATE=`env LANG=en_US date +"%a, %d %b %Y %T %z" -u`
+  STR="GET\n\n\n${DATE}\n${URI}"
+  SIGNATURE=$(echo -en "${STR}" | openssl sha1 -hmac "${S3_SECRET}" -binary | base64)
+  curl -D -s -o "${TARGET}" -X GET \
+    -H "Host: ${HOST}" \
+    -H "Date: ${DATE}" \
+    -H "Authorization: AWS ${S3_KEY}:${SIGNATURE}" \
+    "${SCHEMA}://${HOST}${URI}" > ${LOG_OUT} 2>&1
+  echo "Download '${TARGET}' from '${SCHEMA}://${HOST}${URI}'"
+  rm -rf ${LOG_OUT}
+}
+
+# execute
+if [[ "${ACTION}" == "UPLOAD" ]] ; then
+  putObject
+elif [[ "${ACTION}" == "DOWNLOAD" ]] ; then
+  getObject 
+fi
+
