@@ -64,7 +64,7 @@ fi
 
 
 # switch action
-if [[ " $@" =~ .*?[[:space:]](.+)@([^[:space:]]*)[[:space:]]+([^-]+) ]] ; then
+if [[ " $@" =~ .*?[[:space:]](.+)@([^[:space:]]*)[[:space:]]+([^[:space:]]+) ]] ; then
   # download file from S3 Service
   SOURCE=${BASH_REMATCH[1]}
   BUCKET=${BASH_REMATCH[2]}
@@ -74,7 +74,7 @@ if [[ " $@" =~ .*?[[:space:]](.+)@([^[:space:]]*)[[:space:]]+([^-]+) ]] ; then
   if [[ "${SOURCE:0:1}" != "/" ]] ; then
     SOURCE="/${SOURCE}"
   fi
-elif [[ " $@" =~ .*?[[:space:]]([^-]+)[[:space:]]+(.+)@([^[:space:]]*) ]] ; then
+elif [[ " $@" =~ .*?[[:space:]]([^[:space:]]+)[[:space:]]+(.+)@([^[:space:]]*) ]] ; then
   # upload file to S3 Service
   SOURCE=${BASH_REMATCH[1]}
   BUCKET=${BASH_REMATCH[3]}
