@@ -9,7 +9,7 @@ $ curl https://raw.githubusercontent.com/samejack/ceph-cp/master/ceph-cp > ./cep
 ### Usage
 #### Initial configuration first (save Ceph key and secret to ~/.ceph-cp.conf file)
 ```shell
-$ ./chpe-cp
+$ ./chpe-cp -init
 ```
 
 #### Upload file to Ceph Service Bucket
