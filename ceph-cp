@@ -42,29 +42,30 @@ if [ -f ${CONF_FILE} ] ; then
 fi
 
 
+
 # parse parameter
-if [[ "$@" =~ -k[[:space:]]+([^-[:space:]]+) ]] ; then
+if [[ " $@" =~ [[:space:]]+-k[[:space:]]+([^-[:space:]]+) ]] ; then
   S3_KEY=${BASH_REMATCH[1]}
 fi
-if [[ "$@" =~ -s[[:space:]]+([^-[:space:]]+) ]] ; then
+if [[ " $@" =~ [[:space:]]+-s[[:space:]]+([^-[:space:]]+) ]] ; then
   S3_SECRET=${BASH_REMATCH[1]}
 fi
-if [[ "$@" =~ -h[[:space:]]+([^-[:space:]]+) ]] ; then
+if [[ " $@" =~ [[:space:]]+-h[[:space:]]+([^-[:space:]]+) ]] ; then
   S3_HOST=${BASH_REMATCH[1]}
 fi
 if [[ "${S3_KEY}" == "" || "${S3_SECRET}" == "" || "${S3_HOST}" == "" ]] ; then
   echo ""
   echo " Please set config by: '$0 -init' first."
   echo "  or"
-  echo " Run command and append option arguments: $0 -h [Host] -k [Key] -s [Secret]"
-  echo "  ex: $0 -h http://192.168.0.1 -k ESe8dJDS3988duy -s 48FDg4DFIjeiwe4e90"
+  echo " Run command and append option arguments: $0 -h [Host] -k [Key] -s [Secret] Action"
+  echo "  ex: $0 -h http://192.168.0.1 -k ESe8dJDS3988duy -s 48FDg4DFIjeiwe4e90 upload.file /xxx.file@bucket"
   echo ""
   exit 3
 fi
 
 
 # switch action
-if [[ " $@" =~ .*?[[:space:]](.+)@([^[:space:]]*)[[:space:]]+([^[:space:]]+) ]] ; then
+if [[ " $@" =~ .*?[[:space:]]([^[:space:]]+)@([^[:space:]]*)[[:space:]]+([^[:space:]-]+) ]] ; then
   # download file from S3 Service
   SOURCE=${BASH_REMATCH[1]}
   BUCKET=${BASH_REMATCH[2]}
@@ -74,7 +75,7 @@ if [[ " $@" =~ .*?[[:space:]](.+)@([^[:space:]]*)[[:space:]]+([^[:space:]]+) ]] 
   if [[ "${SOURCE:0:1}" != "/" ]] ; then
     SOURCE="/${SOURCE}"
   fi
-elif [[ " $@" =~ .*?[[:space:]]([^[:space:]]+)[[:space:]]+(.+)@([^[:space:]]*) ]] ; then
+elif [[ " $@" =~ .*?[[:space:]]([^[:space:]]+)[[:space:]]+([^[:space:]]+)@([^[:space:]]*) ]] ; then
   # upload file to S3 Service
   SOURCE=${BASH_REMATCH[1]}
   BUCKET=${BASH_REMATCH[3]}
@@ -89,6 +90,8 @@ elif [[ " $@" =~ .*?[[:space:]]([^[:space:]]+)[[:space:]]+(.+)@([^[:space:]]*) ]
     TARGET="/${TARGET}"
   fi
 fi
+
+
 # fix bucket
 if [[ "${BUCKET}" != "" ]] ; then
   BUCKET="/${BUCKET}"
@@ -159,6 +162,6 @@ function getObject
 if [[ "${ACTION}" == "UPLOAD" ]] ; then
   putObject
 elif [[ "${ACTION}" == "DOWNLOAD" ]] ; then
-  getObject 
+  getObject
 fi
 
