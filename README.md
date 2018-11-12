@@ -1,7 +1,7 @@
 # ceph-cp
 Ceph S3 compatible file copy script
 
-### Dowbload and start
+### Download and start
 ```shell
 $ curl https://raw.githubusercontent.com/samejack/ceph-cp/master/ceph-cp > ./ceph-cp && chmod +x ./ceph-cp
 ```
